@@ -17,7 +17,7 @@ infixl 9 .>
 collapse :: [Int] -> [Int]
 collapse [] = []
 collapse [x] = [x]
-collapse (x:y:rest) | x==y       = (x+1) : rest
+collapse (x:y:rest) | x==y       = (x+1) : collapse rest
                     | otherwise  = x : collapse (y:rest)
 
 backfillNothing :: Int -> [a] -> [Maybe a]
