@@ -67,8 +67,10 @@ emptyPositions =
   .> map fst
 
 lost :: Board -> Bool
-lost b = null $ emptyPositions b
--- that's wrong. TODO: correct this.
+lost b = null $ possibleMoves b
+
+possibleMoves :: Board -> [Board]
+possibleMoves b = filter (/= b) $ map (flip pushTiles b) dirs
 
 setTile pos val =
   unBoard .> mapAt (fst pos) (mapAt (snd pos) (const val)) .> Board
@@ -89,10 +91,10 @@ type Strategy = Board -> Board -> Ordering
 
 turn :: Strategy -> Board -> Maybe Board
 turn s b =
-  if length options > 0
+  if not (null options)
     then Just $ maximumBy s options
     else Nothing
-  where options = filter (/= b) $ map (flip pushTiles b) dirs
+  where options = possibleMoves b
 
 pushTiles :: Direction -> Board -> Board
 pushTiles dir  =
