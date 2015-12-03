@@ -1,11 +1,12 @@
 import Data.Char (intToDigit)
 import Text.Read (readMaybe)
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromJust)
 import Data.List (transpose, intercalate, maximumBy)
+import Data.Ord (comparing)
 import Control.Monad.Random
 
 
-boardSize = 4
+boardSize = 6
 
 
 -- utility
@@ -81,21 +82,6 @@ mapAt n f = go 0
         go i (x:xs)  | i==n      = (f x):xs
                      | otherwise = x : go (i+1) xs
 
-
-highestTile :: Board -> Int
-highestTile = unBoard .> concat .> catMaybes .> (0:) .> maximum
-
-
-type Strategy = Board -> Board -> Ordering
-
-
-turn :: Strategy -> Board -> Maybe Board
-turn s b =
-  if not (null options)
-    then Just $ maximumBy s options
-    else Nothing
-  where options = possibleMoves b
-
 pushTiles :: Direction -> Board -> Board
 pushTiles dir  =
   unBoard .> outer dir .> inner dir
@@ -111,6 +97,37 @@ pushTiles dir  =
     inner U = id
     inner D = map reverse
 
+
+allTiles :: Board -> [Int]
+allTiles = unBoard .> concat .> catMaybes
+
+highestTile :: Board -> Int
+highestTile = allTiles .> (0:) .> maximum
+
+
+type Strategy = Board -> Board -> Ordering
+
+tileRating :: (Ord a, Num a) => (Int -> a) -> Strategy
+tileRating f = comparing $ allTiles .> map f .> sum
+
+
+strategyTurn :: Strategy -> Board -> Maybe Board
+strategyTurn s b =
+  if not (null options)
+    then Just $ maximumBy s options
+    else Nothing  -- that means exactly (lost b)
+  where options = possibleMoves b
+
+
+strategyPlay :: MonadRandom m => Strategy -> m Board
+strategyPlay s = strategyPlayBoard s emptyBoard
+
+strategyPlayBoard :: MonadRandom m => Strategy -> Board -> m Board
+strategyPlayBoard s board = do
+  board' <- addRandomTile board
+  case lost board' of
+    True  -> return board'
+    False -> strategyPlayBoard s $ fromJust $ strategyTurn s board'
 
 
 userPlay :: IO Board
@@ -135,3 +152,4 @@ askTurn board = do
       case board' /= board of
         False -> askTurn board
         True  -> return board'
+
