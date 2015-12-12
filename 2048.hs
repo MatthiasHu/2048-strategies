@@ -1,12 +1,13 @@
 import Data.Char (intToDigit)
 import Text.Read (readMaybe)
-import Data.Maybe (catMaybes, fromJust)
+import Data.Maybe (catMaybes, fromJust, maybeToList)
 import Data.List (transpose, intercalate, maximumBy)
 import Data.Ord (comparing)
+import Control.Monad (liftM2)
 import Control.Monad.Random
 
 
-boardSize = 6
+boardSize = 4
 
 
 -- utility
@@ -111,6 +112,22 @@ tileRating :: (Ord a, Num a) => (Int -> a) -> Strategy
 tileRating f = comparing $ allTiles .> map f .> sum
 
 
+minorNeighbourRating :: (Ord a, Num a) => (Int -> a) -> Strategy
+minorNeighbourRating f = comparing $ minorNeighbours .> map f .> sum
+
+minorNeighbours :: Board -> [Int]
+minorNeighbours b =
+  (minorNeighboursH $ unBoard b)
+  ++ (minorNeighboursH $ transpose $ unBoard b)
+  where minorNeighboursH = map minorNeighboursRow .> concat
+
+minorNeighboursRow :: [Maybe Int] -> [Int]
+minorNeighboursRow (x:xs) = maybeToList x ++ go (x:xs)
+  where go :: [Maybe Int] -> [Int]
+        go [x] = maybeToList x
+        go (x:y:xs) = maybeToList (liftM2 min x y) ++ go (y:xs)
+
+
 strategyTurn :: Strategy -> Board -> Maybe Board
 strategyTurn s b =
   if not (null options)
@@ -119,15 +136,17 @@ strategyTurn s b =
   where options = possibleMoves b
 
 
-strategyPlay :: MonadRandom m => Strategy -> m Board
+strategyPlay :: MonadRandom m => Strategy -> m [Board]
 strategyPlay s = strategyPlayBoard s emptyBoard
 
-strategyPlayBoard :: MonadRandom m => Strategy -> Board -> m Board
+strategyPlayBoard :: MonadRandom m => Strategy -> Board -> m [Board]
 strategyPlayBoard s board = do
   board' <- addRandomTile board
-  case lost board' of
-    True  -> return board'
-    False -> strategyPlayBoard s $ fromJust $ strategyTurn s board'
+  case strategyTurn s board' of
+    Nothing -> return [board']
+    Just board'' -> do
+      furtherGame <- strategyPlayBoard s board''
+      return $ board' : furtherGame
 
 
 userPlay :: IO Board
@@ -153,3 +172,13 @@ askTurn board = do
         False -> askTurn board
         True  -> return board'
 
+
+-- output utility
+oneAtATime :: Show a => [a] -> IO a
+oneAtATime [] = return undefined
+oneAtATime (x:xs) = do
+  putStrLn $ show x
+  line <- getLine
+  case line of
+    "" -> oneAtATime xs
+    _  -> return x
