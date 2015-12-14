@@ -161,9 +161,10 @@ userPlayBoard board = do
 
 askTurn :: Board -> IO Board
 askTurn board = do
+  putStrLn ""
   putStrLn $ replicate boardSize '-'
   putStr $ show board
-  maybeDir <- fmap readMaybe getLine
+  maybeDir <- fmap readMaybeDir getChar
   case maybeDir of
     Nothing  -> askTurn board
     Just dir ->
@@ -171,6 +172,14 @@ askTurn board = do
       case board' /= board of
         False -> askTurn board
         True  -> return board'
+
+readMaybeDir :: Char -> Maybe Direction
+readMaybeDir 'w' = Just U
+readMaybeDir 'a' = Just L
+readMaybeDir 's' = Just D
+readMaybeDir 'd' = Just R
+readMaybeDir  _  = Nothing
+
 
 
 -- output utility
