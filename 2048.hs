@@ -1,4 +1,4 @@
-import Data.Char (intToDigit)
+import Data.Char (intToDigit, toUpper)
 import Text.Read (readMaybe)
 import Data.Maybe (catMaybes, fromJust, maybeToList)
 import Data.List (transpose, intercalate, maximumBy)
@@ -38,7 +38,7 @@ unBoard :: Board -> [[Maybe Int]]
 unBoard (Board rows) = rows
 
 instance Show Board where
-  show = unBoard .> concatMap (\row -> map digit row ++ "|\n")
+  show = unBoard .> concatMap (\row -> map (digit .> toUpper) row ++ "|\n")
 
 digit :: Maybe Int -> Char
 digit Nothing = ' '
@@ -126,6 +126,28 @@ minorNeighboursRow (x:xs) = maybeToList x ++ go (x:xs)
   where go :: [Maybe Int] -> [Int]
         go [x] = maybeToList x
         go (x:y:xs) = maybeToList (liftM2 min x y) ++ go (y:xs)
+
+
+mneStrategy :: Strategy -- "minor neighbour/equal"
+mneStrategy = comparing mneScore
+
+mneScore :: Board -> Int
+mneScore b =
+  sum . map mneRowScore $ (unBoard b) ++ (transpose $ unBoard b)
+
+mneRowScore :: [Maybe Int] -> Int
+mneRowScore row@(x:_) = maybeBorderScore x + go row
+  where go [x]                    = maybeBorderScore x
+        go (Nothing:ys)           = go ys
+        go (_:Nothing:ys)         = go (Nothing:ys)
+        go (Just x : Just y : ys) =
+          ( if (x==y) then eqScore x else mnScore (min x y) )
+          + go (Just y : ys)
+        maybeBorderScore Nothing  = 0
+        maybeBorderScore (Just x) = borderScore x
+        borderScore = (4^)
+        mnScore     = (4^)
+        eqScore     = (2*) . (4^)
 
 
 strategyTurn :: Strategy -> Board -> Maybe Board
